@@ -36,7 +36,8 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Responsible for loading data from disk, handling any operations to access/change data during the plugin's life, and storing
+ * Responsible for loading data from disk, handling any operations to
+ * access/change data during the plugin's life, and storing
  * data to disk.
  */
 @Slf4j
@@ -84,16 +85,18 @@ public class DataHandler {
         return accountSpecificData.values();
     }
 
-    //TODO this is a weird solution to the problem of having to know whether data changed...
-    //TODO change it to something that perhaps takes a snapshot of data at plugin start and compares it to
-    //TODO data at logout/plugin shutdown.
-    //calls it if data is going to be updated,
+    // TODO this is a weird solution to the problem of having to know whether data
+    // changed...
+    // TODO change it to something that perhaps takes a snapshot of data at plugin
+    // start and compares it to
+    // TODO data at logout/plugin shutdown.
+    // calls it if data is going to be updated,
     public AccountData getAccountData(String displayName) {
         accountsWithUnsavedChanges.add(displayName);
         return accountSpecificData.get(displayName);
     }
 
-    //is called if account data just needs to be viewed, not updated
+    // is called if account data just needs to be viewed, not updated
     public AccountData viewAccountData(String displayName) {
         return accountSpecificData.get(displayName);
     }
@@ -105,8 +108,7 @@ public class DataHandler {
     public void markDataAsHavingChanged(String displayName) {
         if (displayName.equals(FlippingPlugin.ACCOUNT_WIDE)) {
             accountWideDataChanged = true;
-        }
-        else {
+        } else {
             accountsWithUnsavedChanges.add(displayName);
         }
     }
@@ -129,9 +131,8 @@ public class DataHandler {
     public void loadData() {
         log.debug("Loading data on startup");
         try {
-            TradePersister.setupFlippingFolder();
-        }
-        catch (Exception e) {
+            plugin.tradePersister.setupFlippingFolder();
+        } catch (Exception e) {
             log.warn("Couldn't set up flipping folder, setting defaults", e);
             accountWideData = new AccountWideData();
             accountWideData.setDefaults();
@@ -147,29 +148,32 @@ public class DataHandler {
         accountSpecificData = fetchAndPrepareAllAccountData();
         backupAllAccountData();
     }
-    
+
     private void backupAllAccountData() {
         log.debug("backing up account data");
         boolean backupCheckpointsChanged = false;
         for (String displayName : accountSpecificData.keySet()) {
             AccountData accountData = accountSpecificData.get(displayName);
-            //the data could be empty because there was an exception when loading it (such as in fetchAccountData)
-            //or perhaps there are legitimately no trades because it is a new file or the user reset their history. In
-            //any of these cases, we shouldn't back it up as its useless to backup an empty AccountData and, even worse, 
-            //we may overwrite a previous backup with nothing.
+            // the data could be empty because there was an exception when loading it (such
+            // as in fetchAccountData)
+            // or perhaps there are legitimately no trades because it is a new file or the
+            // user reset their history. In
+            // any of these cases, we shouldn't back it up as its useless to backup an empty
+            // AccountData and, even worse,
+            // we may overwrite a previous backup with nothing.
 
-            if (!accountData.getTrades().isEmpty() && backupCheckpoints.shouldBackup(displayName, accountData.getLastStoredAt())) {
-                try { 
+            if (!accountData.getTrades().isEmpty()
+                    && backupCheckpoints.shouldBackup(displayName, accountData.getLastStoredAt())) {
+                try {
                     plugin.tradePersister.writeToFile(displayName + ".backup", accountData);
                     backupCheckpoints.getAccountToBackupTime().put(displayName, accountData.getLastStoredAt());
                     backupCheckpointsChanged = true;
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     log.warn("Couldn't backup account data for {} due to {}", displayName, e);
                 }
-            }
-            else {
-                log.debug("Not backing up data for {} as it's empty or it hasn't changed since last backup", displayName);
+            } else {
+                log.debug("Not backing up data for {} as it's empty or it hasn't changed since last backup",
+                        displayName);
             }
         }
         if (backupCheckpointsChanged) {
@@ -184,8 +188,7 @@ public class DataHandler {
             boolean didActuallySetDefaults = accountWideData.setDefaults();
             accountWideDataChanged = didActuallySetDefaults;
             return accountWideData;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.warn("couldn't load accountwide data, setting defaults", e);
             AccountWideData accountWideData = new AccountWideData();
             accountWideData.setDefaults();
@@ -194,8 +197,7 @@ public class DataHandler {
         }
     }
 
-    private Map<String, AccountData> fetchAndPrepareAllAccountData()
-    {
+    private Map<String, AccountData> fetchAndPrepareAllAccountData() {
         Map<String, AccountData> accounts = fetchAllAccountData();
         prepareAllAccountData(accounts);
         return accounts;
@@ -224,9 +226,10 @@ public class DataHandler {
     private Map<String, AccountData> fetchAllAccountData() {
         try {
             return plugin.tradePersister.loadAllAccounts();
-        }
-        catch (Exception e) {
-            log.warn("error propagated from tradePersister.loadAllAccounts() when fetching all account data, returning empty hashmap", e);
+        } catch (Exception e) {
+            log.warn(
+                    "error propagated from tradePersister.loadAllAccounts() when fetching all account data, returning empty hashmap",
+                    e);
             return new HashMap<>();
         }
     }
@@ -236,34 +239,28 @@ public class DataHandler {
         accountWideData = fetchAccountWideData();
         plugin.getRecipeHandler().setLocalRecipes(accountWideData.getLocalRecipes());
     }
-    
+
     // Used by other components to set account data on DataHandler
     public void loadAccountData(String displayName) {
         log.info("loading data for {}", displayName);
         accountSpecificData.put(displayName, fetchAccountData(displayName));
     }
 
-    private AccountData fetchAccountData(String displayName)
-    {
+    private AccountData fetchAccountData(String displayName) {
         try {
             AccountData accountData = plugin.tradePersister.loadAccount(displayName);
             accountData.prepareForUse(plugin);
             return accountData;
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             log.warn("couldn't load trades for {}, e = " + e, displayName);
             return new AccountData();
         }
     }
 
-    private void storeAccountData(String displayName)
-    {
-        try
-        {
+    private void storeAccountData(String displayName) {
+        try {
             AccountData data = accountSpecificData.get(displayName);
-            if (data == null)
-            {
+            if (data == null) {
                 log.debug("for an unknown reason the data associated with {} has been set to null. Storing" +
                         "an empty AccountData object instead.", displayName);
                 data = new AccountData();
@@ -271,9 +268,7 @@ public class DataHandler {
             thisClientLastStored = displayName;
             data.setLastStoredAt(Instant.now());
             plugin.tradePersister.writeToFile(displayName, data);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             log.warn("couldn't store trades, error = " + e);
         }
     }
@@ -281,9 +276,8 @@ public class DataHandler {
     private void storeData(String fileName, Object data) {
         try {
             plugin.tradePersister.writeToFile(fileName, data);
-        }
-        catch (Exception e) {
-            log.warn("couldn't store data to {} bc of {}",fileName, e);
+        } catch (Exception e) {
+            log.warn("couldn't store data to {} bc of {}", fileName, e);
         }
     }
 }
